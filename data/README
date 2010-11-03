@@ -1,0 +1,5 @@
+Training and test data for tokenization in BIO format. Whitespace has
+been replaced with '·'.
+
+Extracted from the written parts of the OANC sub-corpus MINI-MASC
+(http://www.americannationalcorpus.org/MASC/Download.html)
