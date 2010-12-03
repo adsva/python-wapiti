@@ -134,10 +134,6 @@ class ModelType(ctypes.Structure):
         ('timer', TmsType),
         ('total', ctypes.c_double)]
     
-class RawType(ctypes.Structure):
-    """Raw sequence lines"""
-
-
 
 # Setup methods
 
@@ -156,7 +152,9 @@ _wapiti.dodump.argtypes = [ctypes.POINTER(ModelType)]
 
 class Model:
     
-    def __init__(self, **options):
+    def __init__(self, encoding='utf8', **options):
+        self.encoding = encoding
+        
         add_default_options(options) # Add any missing values
         self.options = OptType(**options)
 
@@ -194,18 +192,24 @@ class Model:
 
     def label_sequence(self, lines):
         """Returns a list of label predictions for a list of BIO-formatted lines"""
-
         # Redefining types seems to be one of the suggested ways of
         # dealing with variable sized arrays.  This sets the array
         # size for the input lines and the output labels.
         numlines = len(lines)
-        RawType._fields_ = [
-            ('len', ctypes.c_int), 
-            ('lines', ctypes.c_char_p * numlines)]
+
+        class RawType(ctypes.Structure):
+            _fields_ = [
+                ('len', ctypes.c_int), 
+                ('lines', ctypes.c_char_p * numlines)
+            ]
+            
         _wapiti.tag_label_raw.argtypes = [
             ctypes.POINTER(ModelType), 
             ctypes.POINTER(RawType), 
             (ctypes.c_char_p * (self._model.contents.opt.contents.nbest * numlines))]
+
+        # If the input is unicode, convert to the specified encoding 
+        lines = [line.encode(self.encoding) if type(line) == unicode else line for line in lines]
 
         # Build the char* array from the input lines
         raw_lines = RawType(numlines, (ctypes.c_char_p * numlines)(*lines))
