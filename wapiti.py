@@ -1,16 +1,17 @@
 #!/usr/bin/env python
 """
 python-wapiti provides Python bindings for libwapiti, my shared
-library branch of wapiti (http://wapiti.limsi.fr), a very nice
+library version of wapiti (http://wapiti.limsi.fr), a very nice
 sequence labeling tool written by Thomas Lavergne.
 """
 __author__ = "Adam Svanberg <asvanberg@gmail.com>"
 __version__ = "0.1"
 
+from ctypes.util import find_library
 import ctypes
-import sys
 
-_wapiti = ctypes.CDLL('libwapiti.so')
+_wapiti = ctypes.CDLL(find_library('wapiti'))
+_libc = ctypes.CDLL(find_library('c'))
 
 #
 # Helper types
@@ -74,6 +75,7 @@ class OptType(ctypes.Structure):
         ('compact', ctypes.c_bool),
         ('sparse', ctypes.c_bool),
         ('nthread', ctypes.c_int),
+        ('jobsize', ctypes.c_int),
         ('maxiter', ctypes.c_int),
         ('rho1', ctypes.c_double),
         ('rho2', ctypes.c_double),
@@ -93,21 +95,13 @@ class OptType(ctypes.Structure):
 
 
 _default_options = OptType.in_dll(_wapiti, "opt_defaults")
-def add_default_options(options):
-    for field in _default_options._fields_:
-        field_name = field[0]
-        if not field_name in options:
-            options[field_name] = getattr(_default_options, field_name)
-    if options['maxiter'] == 0:
-        # Zero means max int size. Handled by option parser in wapiti.
-        options['maxiter'] = sys.maxsize
 
  
 class ModelType(ctypes.Structure):
     _fields_ = [
         ('opt', ctypes.POINTER(OptType)),    # options for training
 
-	# Size of various model parameters
+        # Size of various model parameters
         ('nlbl', ctypes.c_size_t),   # Y   number of labels       
         ('nobs', ctypes.c_size_t),   # O   number of observations 
         ('nftr', ctypes.c_size_t),   # F   number of features     
@@ -117,7 +111,7 @@ class ModelType(ctypes.Structure):
         ('uoff', ctypes.c_void_p),   # [O]  unigram weights offset
         ('boff', ctypes.c_void_p),   # [O]  bigram weights offset 
 
-	# The model itself
+        # The model itself
         ('theta', ctypes.c_void_p),  # [F]  features weights
 
         # Datasets
@@ -134,167 +128,178 @@ class ModelType(ctypes.Structure):
         ('timer', TmsType),
         ('total', ctypes.c_double)]
     
+                
+def freeing_char_p(char_p):
+    """
+    Restype to copy a c_char_p to str and free memory
 
+    Avoids memory leaks when returning char pointers allocated in C by
+    converting a copy to a python string and freeing the original
+    pointer.
+    """
+    s = ctypes.string_at(char_p)
+    _libc.free(char_p)
+    return s
+        
 # Setup methods
 
-# Reader
-_wapiti.rdr_new.argtypes = [ctypes.c_bool]
-_wapiti.rdr_new.restype = ctypes.c_void_p
 # Model
-_wapiti.mdl_new.argtypes = [ctypes.c_void_p]
-_wapiti.mdl_new.restype = ctypes.POINTER(ModelType)
+_wapiti.api_new_model.argtypes = [ctypes.POINTER(OptType), ctypes.c_char_p]
+_wapiti.api_new_model.restype = ctypes.POINTER(ModelType)
+_wapiti.api_load_model.argtypes = [ctypes.c_char_p, ctypes.POINTER(OptType)]
+_wapiti.api_load_model.restype = ctypes.POINTER(ModelType)
 
-# File based train, label, dump
-_wapiti.dotrain.argtypes = [ctypes.POINTER(ModelType)]
-_wapiti.dolabel.argtypes = [ctypes.POINTER(ModelType)]
-_wapiti.dodump.argtypes = [ctypes.POINTER(ModelType)]
+
+# Training
+_wapiti.api_add_train_seq.argtypes = [ctypes.POINTER(ModelType), ctypes.c_char_p]
+
+# Labeling
+_wapiti.api_label_seq.argtypes = [ctypes.POINTER(ModelType), ctypes.c_char_p]
+_wapiti.api_label_seq.restype = freeing_char_p
+
+_libc.free.argtypes = [ctypes.c_void_p]
 
 
 class Model:
     
-    def __init__(self, encoding='utf8', **options):
+    def __init__(self, patterns=None, encoding='utf8', **options):
+
+        # Make sure encoding is taken care of when passing strings
         self.encoding = encoding
+        ctypes.set_conversion_mode(encoding, 'replace')
         
-        add_default_options(options) # Add any missing values
+        # Add unspecified options values from Wapiti's default struct
+        for field in _default_options._fields_:
+            field_name = field[0]
+            if not field_name in options:
+                options[field_name] = getattr(_default_options, field_name)
+        if options['maxiter'] == 0:
+            # Wapiti specifies that 0 means max int size for this option.
+            options['maxiter'] = sys.maxsize
+
         self.options = OptType(**options)
 
-        self._model = _wapiti.mdl_new(_wapiti.rdr_new(self.options.maxent))
-        self._model.contents.opt = ctypes.pointer(self.options)
-
+        # Load model from file if specified
         if self.options.model:
-            f = file(self.options.model)
-            fp = ctypes.pythonapi.PyFile_AsFile(f)
-            _wapiti.mdl_load(self._model, fp)
+            self._model = _wapiti.api_load_model(
+                self.options.model,
+                ctypes.pointer(self.options)
+            )
+        else:
+            if self.options.pattern:
+                self.patterns = open(self.options.pattern).read()
+            else:
+                self.patterns = patterns
 
+            self._model = _wapiti.api_new_model(
+                ctypes.pointer(self.options),
+                self.patterns
+            )            
 
-    # Simple file based wrappers for the three main modes of Wapiti
-
-    def train(self, infile, outfile):
-        """File-based training"""
-        self.options.input = infile
-        self.options.output = outfile
-        _wapiti.dotrain(self._model)
-
-    def label(self, infile, outfile):
-        """File-based labeling"""
-        self.options.input = infile
-        self.options.output = outfile
-        _wapiti.dolabel(self._model)
-
-    def dump(self, infile, outfile):
-        """File-based model dump"""
-        self.options.input = infile
-        self.options.output = outfile
-        _wapiti.dodump(self._model)
+    def add_training_sequence(self, sequence):
+        _wapiti.api_add_train_seq(self._model, seq)
+        
+    def train(self, sequences=[]):
+        for seq in sequences:
+            _wapiti.api_add_train_seq(self._model, seq)
+        _wapiti.api_train(self._model)
         
 
-    # Libwapiti extras
-
+    def save(self, modelfile):
+        if type(modelfile) != file:
+            modelfile = open(modelfile, 'w')
+        fp = ctypes.pythonapi.PyFile_AsFile(modelfile)
+        _wapiti.api_save_model(self._model, fp)
+    
     def label_sequence(self, lines):
-        """Returns a list of label predictions for a list of BIO-formatted lines"""
-        # Redefining types seems to be one of the suggested ways of
-        # dealing with variable sized arrays.  This sets the array
-        # size for the input lines and the output labels.
-        numlines = len(lines)
+        """
+        Accepts a string of BIO-formatted lines and adds a label column
 
-        class RawType(ctypes.Structure):
-            _fields_ = [
-                ('len', ctypes.c_int), 
-                ('lines', ctypes.c_char_p * numlines)
-            ]
-            
-        _wapiti.tag_label_raw.argtypes = [
-            ctypes.POINTER(ModelType), 
-            ctypes.POINTER(RawType), 
-            (ctypes.c_char_p * (self._model.contents.opt.contents.nbest * numlines))]
+        The input string is labeled as one sequence, i.e. double
+        linebreaks are ignored.
+        """
 
-        # If the input is unicode, convert to the specified encoding 
-        lines = [line.encode(self.encoding) if type(line) == unicode else line for line in lines]
+        if type(lines) == unicode:
+            lines.encode(self.encoding)
+        labeled = _wapiti.api_label_seq(self._model, lines)
 
-        # Build the char* array from the input lines
-        raw_lines = RawType(numlines, (ctypes.c_char_p * numlines)(*lines))
-
-        # Build empty label char* array based on number of lines 
-        # TODO:
-        # The actual labels are allocated in libwapiti, need to find
-        # out if they're ever freed. Not sure if the python conversion
-        # copies or not.
-        labels = (ctypes.c_char_p * (self._model.contents.opt.contents.nbest * numlines))()
-
-        _wapiti.tag_label_raw(self._model, ctypes.pointer(raw_lines), labels)
-
-        return labels
-
+        return labeled 
 
 
 if __name__ == '__main__':
     # Emulate wapiti functionality. Not really meaningful except for
     # testing the python bindings
     
+    import sys
     import optparse
 
-    parser = optparse.OptionParser("usage: %prog train|label|dump [options] [infile] [outfile]")
+    parser = optparse.OptionParser(
+        "usage: %prog train|label [options] [infile] [outfile]"
+    )
+
     option_dict = {}
     def dictsetter(option, opt_str, value, *args, **kwargs):
         option_dict[option.dest] = value
 
-    parser.add_option('--me', dest='maxent', type='int', default=False, 
+    parser.add_option('--me', dest='maxent', type='int',  
                       action='callback', callback=dictsetter)
-    parser.add_option('--algo', dest='algo', type='string', default='l-bfgs', 
+    parser.add_option('--algo', dest='algo', type='string',  
                       action='callback', callback=dictsetter)
-    parser.add_option('--pattern', dest='pattern', type='string', default=None, 
+    parser.add_option('--pattern', dest='pattern', type='string',  
                       action='callback', callback=dictsetter)
-    parser.add_option('--model', dest='model', type='string', default=None, 
+    parser.add_option('--model', dest='model', type='string',  
                       action='callback', callback=dictsetter)
-    parser.add_option('--devel', dest='devel', type='string', default=None, 
+    parser.add_option('--devel', dest='devel', type='string',  
                       action='callback', callback=dictsetter)
-    parser.add_option('--compact', dest='compact', type='int', default=False, 
+    parser.add_option('--compact', dest='compact', type='int',  
                       action='callback', callback=dictsetter)
-    parser.add_option('--sparse', dest='sparse', type='int', default=False, 
+    parser.add_option('--sparse', dest='sparse', type='int',  
                       action='callback', callback=dictsetter)
-    parser.add_option('--nthread', dest='nthread', type='int', default=1, 
+    parser.add_option('--nthread', dest='nthread', type='int',  
                       action='callback', callback=dictsetter)
-    parser.add_option('--maxiter', dest='maxiter', type='int', default=0, 
+    parser.add_option('--jobsize', dest='jobsize', type='int',  
                       action='callback', callback=dictsetter)
-    parser.add_option('--rho1', dest='rho1', type='float', default=0.5, 
+    parser.add_option('--maxiter', dest='maxiter', type='int',  
                       action='callback', callback=dictsetter)
-    parser.add_option('--rho2', dest='rho2', type='float', default=0.0001, 
+    parser.add_option('--rho1', dest='rho1', type='float',  
                       action='callback', callback=dictsetter)
-    parser.add_option('--objwin', dest='objwin', type='int', default=5, 
+    parser.add_option('--rho2', dest='rho2', type='float',  
                       action='callback', callback=dictsetter)
-    parser.add_option('--stopwin', dest='stopwin', type='int', default=5, 
+    parser.add_option('--objwin', dest='objwin', type='int',  
                       action='callback', callback=dictsetter)
-    parser.add_option('--stopeps', dest='stopeps', type='float', default=0.02, 
+    parser.add_option('--stopwin', dest='stopwin', type='int',  
                       action='callback', callback=dictsetter)
-    parser.add_option('--clip', dest='clip', type='int', default=False, 
+    parser.add_option('--stopeps', dest='stopeps', type='float',  
                       action='callback', callback=dictsetter)
-    parser.add_option('--histsz', dest='clip', type='int', default=5, 
+    parser.add_option('--clip', dest='clip', type='int',  
                       action='callback', callback=dictsetter)
-    parser.add_option('--maxls', dest='clip', type='int', default=40, 
+    parser.add_option('--histsz', dest='clip', type='int',  
                       action='callback', callback=dictsetter)
-    parser.add_option('--eta0', dest='eta0', type='float', default=0.8, 
+    parser.add_option('--maxls', dest='clip', type='int',  
                       action='callback', callback=dictsetter)
-    parser.add_option('--alpha', dest='alpha', type='float', default=0.85, 
+    parser.add_option('--eta0', dest='eta0', type='float',  
                       action='callback', callback=dictsetter)
-    parser.add_option('--kappa', dest='kappa', type='float', default=1.5, 
+    parser.add_option('--alpha', dest='alpha', type='float',  
                       action='callback', callback=dictsetter)
-    parser.add_option('--stpmin', dest='stpmin', type='float', default=1e-8, 
+    parser.add_option('--kappa', dest='kappa', type='float',  
                       action='callback', callback=dictsetter)
-    parser.add_option('--stpmax', dest='stpmax', type='float', default=50.0, 
+    parser.add_option('--stpmin', dest='stpmin', type='float',  
                       action='callback', callback=dictsetter)
-    parser.add_option('--stpinc', dest='stpinc', type='float', default=1.2, 
+    parser.add_option('--stpmax', dest='stpmax', type='float',  
                       action='callback', callback=dictsetter)
-    parser.add_option('--stpdec', dest='stpdec', type='float', default=0.5, 
+    parser.add_option('--stpinc', dest='stpinc', type='float',  
                       action='callback', callback=dictsetter)
-    parser.add_option('--label', dest='label', type='int', default=False, 
+    parser.add_option('--stpdec', dest='stpdec', type='float',  
                       action='callback', callback=dictsetter)
-    parser.add_option('--check', dest='check', type='int', default=False, 
+    parser.add_option('--label', dest='label', type='int',  
                       action='callback', callback=dictsetter)
-    parser.add_option('--score', dest='outsc', type='int', default=False, 
+    parser.add_option('--check', dest='check', type='int',  
                       action='callback', callback=dictsetter)
-    parser.add_option('--post', dest='lblpost', type='int', default=False, 
+    parser.add_option('--score', dest='outsc', type='int',  
                       action='callback', callback=dictsetter)
-    parser.add_option('--nbest', dest='nbest', type='int', default=1, 
+    parser.add_option('--post', dest='lblpost', type='int',  
+                      action='callback', callback=dictsetter)
+    parser.add_option('--nbest', dest='nbest', type='int',  
                       action='callback', callback=dictsetter)
 
     options, args = parser.parse_args()
@@ -303,19 +308,23 @@ if __name__ == '__main__':
     if not action:
         parser.error("Invalid action")
 
-    infile = len(args) > 1 and args[1] or None
-    outfile = len(args) > 2 and args[2] or None
+    infile = len(args) > 1 and open(args[1]) or sys.stdin
+    outfile = len(args) > 2 and open(args[2], 'w') or sys.stdout
 
     model = Model(**option_dict)
 
     if action == 'train':
-        model.train(infile, outfile)
+        model.train(infile.read().split('\n\n'))
+        model.save(outfile)
+            
     elif action == 'label':
         if 'model' not in option_dict:
             parser.error("Labeling requires a model")
-        model.label(infile, outfile)
-    elif action == 'dump':
-        model.dump(infile, outfile)
+        if not infile:
+            infile = sys.stdin
+        for sequence in infile.read().split('\n\n'):
+            outfile.write(model.label_sequence(sequence))
+            outfile.close()
     else:
         parser.error("Invalid action")
 
