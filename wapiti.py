@@ -7,8 +7,10 @@ sequence labeling tool written by Thomas Lavergne.
 __author__ = "Adam Svanberg <asvanberg@gmail.com>"
 __version__ = "0.1"
 
-from ctypes.util import find_library
+import sys
 import ctypes
+import logging
+from ctypes.util import find_library
 
 _wapiti = ctypes.CDLL(find_library('wapiti'))
 _libc = ctypes.CDLL(find_library('c'))
@@ -33,7 +35,6 @@ class TmsType(ctypes.Structure):
         ('tms_cutime', ctypes.c_long),
         ('tms_cstime', ctypes.c_long)
         ]
-
 
 #
 # Wapiti types
@@ -159,6 +160,41 @@ _wapiti.api_label_seq.restype = freeing_char_p
 
 _libc.free.argtypes = [ctypes.c_void_p]
 
+# Setup logging
+#
+# The logging functions in api_logs are replaced by standard python
+# logging callbacks. Since the error log is supposed to be fatal, we
+# wrap that logger to also raise SystemExit.
+class NullHandler(logging.Handler):
+    def emit(self, record):
+        pass
+    
+logger = logging.getLogger('wapiti')
+logger.addHandler(NullHandler()) # Avoids warnings in non-logging applications
+
+def fatal(msg):
+    logger.error("%s - exiting", msg)
+    raise SystemExit(msg)
+
+LogFunc = ctypes.CFUNCTYPE(None, ctypes.c_char_p)    # Define the callback (retval, *args)
+api_logs = (LogFunc * 4).in_dll(_wapiti, "api_logs") # The array of 4 function pointers
+api_logs[0] = LogFunc(fatal)                         # api_logs[FATAL]
+api_logs[1] = LogFunc(fatal)                         # api_logs[PFATAL]
+api_logs[2] = LogFunc(logger.warning)                # api_logs[WARNING]
+api_logs[3] = LogFunc(logger.info)                   # api_logs[INFO]
+
+
+def bio_safe(unicode_string):
+    """Remap whitespace to suitable unicode representations"""
+    return unicode_string.translate({
+        32:u'\u2192', # ' '
+        10:u'\u21b5', # '\n'
+         9:u'\u21a6', # '\t'
+        11:u'\u219d', # '\x0b'
+        12:u'\u219d', # '\x0c'
+        13:u'\u219d', # '\r'
+    })
+
 
 class Model:
     
@@ -196,8 +232,12 @@ class Model:
                 self.patterns
             )            
 
+
+    def __del__(self):
+        _wapiti.api_free_model(self._model)
+
     def add_training_sequence(self, sequence):
-        _wapiti.api_add_train_seq(self._model, seq)
+        _wapiti.api_add_train_seq(self._model, sequence)
         
     def train(self, sequences=[]):
         for seq in sequences:
@@ -218,9 +258,6 @@ class Model:
         The input string is labeled as one sequence, i.e. double
         linebreaks are ignored.
         """
-
-        if type(lines) == unicode:
-            lines.encode(self.encoding)
         labeled = _wapiti.api_label_seq(self._model, lines)
 
         return labeled 
@@ -229,8 +266,10 @@ class Model:
 if __name__ == '__main__':
     # Emulate wapiti functionality. Not really meaningful except for
     # testing the python bindings
-    
-    import sys
+
+    logger.setLevel(logging.DEBUG)
+    logger.addHandler(logging.StreamHandler())
+
     import optparse
 
     parser = optparse.OptionParser(
@@ -324,7 +363,7 @@ if __name__ == '__main__':
             infile = sys.stdin
         for sequence in infile.read().split('\n\n'):
             outfile.write(model.label_sequence(sequence))
-            outfile.close()
+        outfile.close()
     else:
         parser.error("Invalid action")
 
