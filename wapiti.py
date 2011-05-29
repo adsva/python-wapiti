@@ -10,6 +10,7 @@ __version__ = "0.1"
 import sys
 import ctypes
 import logging
+import multiprocessing
 from ctypes.util import find_library
 
 _wapiti = ctypes.CDLL(find_library('wapiti'))
@@ -97,7 +98,19 @@ class OptType(ctypes.Structure):
 
 _default_options = OptType.in_dll(_wapiti, "opt_defaults")
 
- 
+
+ALGORITHMS = [
+    'l-bfgs',
+    'sgd-l1',
+    'bcd',
+    'rprop',
+    'rprop+',
+    'rprop-',
+    'auto',
+]
+    
+
+
 class ModelType(ctypes.Structure):
     _fields_ = [
         ('opt', ctypes.POINTER(OptType)),    # options for training
@@ -204,6 +217,10 @@ class Model:
         self.encoding = encoding
         ctypes.set_conversion_mode(encoding, 'replace')
         
+        if 'nthread' not in options:
+            # If thread count isn't given, use number of processors
+            options['nthread'] = multiprocessing.cpu_count()
+
         # Add unspecified options values from Wapiti's default struct
         for field in _default_options._fields_:
             field_name = field[0]
@@ -211,7 +228,7 @@ class Model:
                 options[field_name] = getattr(_default_options, field_name)
         if options['maxiter'] == 0:
             # Wapiti specifies that 0 means max int size for this option.
-            options['maxiter'] = sys.maxsize
+            options['maxiter'] = 2147483647
 
         self.options = OptType(**options)
 
@@ -234,7 +251,8 @@ class Model:
 
 
     def __del__(self):
-        _wapiti.api_free_model(self._model)
+        if _wapiti and self._model:
+            _wapiti.api_free_model(self._model)
 
     def add_training_sequence(self, sequence):
         _wapiti.api_add_train_seq(self._model, sequence)
@@ -353,7 +371,7 @@ if __name__ == '__main__':
     model = Model(**option_dict)
 
     if action == 'train':
-        model.train(infile.read().split('\n\n'))
+        model.train(infile.read().strip().split('\n\n'))
         model.save(outfile)
             
     elif action == 'label':
