@@ -44,8 +44,8 @@ class TmsType(ctypes.Structure):
 class LbfgsType(ctypes.Structure):
     _fields_ = [
         ('clip', ctypes.c_bool),
-        ('histsz', ctypes.c_int),
-        ('maxls', ctypes.c_int),
+        ('histsz', ctypes.c_uint32),
+        ('maxls', ctypes.c_uint32),
         ]
 class Sgdl1Type(ctypes.Structure):
     _fields_ = [
@@ -62,6 +62,7 @@ class RpropType(ctypes.Structure):
         ('stpmax', ctypes.c_double),
         ('stpinc', ctypes.c_double),
         ('stpdec', ctypes.c_double),
+        ('cutoff', ctypes.c_bool),
         ]
 
 class OptType(ctypes.Structure):
@@ -70,19 +71,20 @@ class OptType(ctypes.Structure):
         ('input', ctypes.c_char_p),
         ('output', ctypes.c_char_p),
         ('maxent', ctypes.c_bool),
+        ('type', ctypes.c_char_p),
         ('algo', ctypes.c_char_p),
         ('pattern', ctypes.c_char_p),
         ('model', ctypes.c_char_p),
         ('devel', ctypes.c_char_p),
         ('compact', ctypes.c_bool),
         ('sparse', ctypes.c_bool),
-        ('nthread', ctypes.c_int),
-        ('jobsize', ctypes.c_int),
-        ('maxiter', ctypes.c_int),
+        ('nthread', ctypes.c_uint32),
+        ('jobsize', ctypes.c_uint32),
+        ('maxiter', ctypes.c_uint32),
         ('rho1', ctypes.c_double),
         ('rho2', ctypes.c_double),
-        ('objwin', ctypes.c_int),
-        ('stopwin', ctypes.c_int),
+        ('objwin', ctypes.c_uint32),
+        ('stopwin', ctypes.c_uint32),
         ('stopeps', ctypes.c_double),
         ('lbfgs', LbfgsType),
         ('sgdl1', Sgdl1Type),
@@ -92,12 +94,11 @@ class OptType(ctypes.Structure):
         ('check', ctypes.c_bool),
         ('outsc', ctypes.c_bool),
         ('lblpost', ctypes.c_bool),
-        ('nbest', ctypes.c_int),
+        ('nbest', ctypes.c_uint32),
         ]
 
 
 _default_options = OptType.in_dll(_wapiti, "opt_defaults")
-
 
 ALGORITHMS = [
     'l-bfgs',
@@ -277,7 +278,6 @@ class Model:
         linebreaks are ignored.
         """
         labeled = _wapiti.api_label_seq(self._model, lines)
-
         return labeled 
 
 
@@ -299,6 +299,8 @@ if __name__ == '__main__':
         option_dict[option.dest] = value
 
     parser.add_option('--me', dest='maxent', type='int',  
+                      action='callback', callback=dictsetter)
+    parser.add_option('--type', dest='type', type='string',
                       action='callback', callback=dictsetter)
     parser.add_option('--algo', dest='algo', type='string',  
                       action='callback', callback=dictsetter)
@@ -380,7 +382,7 @@ if __name__ == '__main__':
         if not infile:
             infile = sys.stdin
         for sequence in infile.read().split('\n\n'):
-            outfile.write(model.label_sequence(sequence))
+            outfile.write(model.label_sequence(sequence)+'\n')
         outfile.close()
     else:
         parser.error("Invalid action")
