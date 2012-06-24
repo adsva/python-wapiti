@@ -76,6 +76,8 @@ class OptType(ctypes.Structure):
         ('pattern', ctypes.c_char_p),
         ('model', ctypes.c_char_p),
         ('devel', ctypes.c_char_p),
+        ('rstate', ctypes.c_char_p),
+        ('sstate', ctypes.c_char_p),
         ('compact', ctypes.c_bool),
         ('sparse', ctypes.c_bool),
         ('nthread', ctypes.c_uint32),
@@ -95,6 +97,7 @@ class OptType(ctypes.Structure):
         ('outsc', ctypes.c_bool),
         ('lblpost', ctypes.c_bool),
         ('nbest', ctypes.c_uint32),
+        ('force', ctypes.c_bool),
         ]
 
 
@@ -321,6 +324,10 @@ if __name__ == '__main__':
                       action='callback', callback=dictsetter)
     parser.add_option('--devel', dest='devel', type='string',
                       action='callback', callback=dictsetter)
+    parser.add_option('--rstate', dest='rstate', type='string',
+                      action='callback', callback=dictsetter)
+    parser.add_option('--sstate', dest='sstate', type='string',
+                      action='callback', callback=dictsetter)
     parser.add_option('--compact', dest='compact', type='int',
                       action='callback', callback=dictsetter)
     parser.add_option('--sparse', dest='sparse', type='int',
@@ -370,6 +377,8 @@ if __name__ == '__main__':
     parser.add_option('--post', dest='lblpost', type='int',
                       action='callback', callback=dictsetter)
     parser.add_option('--nbest', dest='nbest', type='int',
+                      action='callback', callback=dictsetter)
+    parser.add_option('--force', dest='force', type='int',
                       action='callback', callback=dictsetter)
 
     options, args = parser.parse_args()
