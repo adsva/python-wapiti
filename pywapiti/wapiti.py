@@ -7,13 +7,14 @@ sequence labeling tool written by Thomas Lavergne.
 __author__ = "Adam Svanberg <asvanberg@gmail.com>"
 __version__ = "0.1"
 
+import os
 import sys
 import ctypes
 import logging
 import multiprocessing
 from ctypes.util import find_library
 
-_wapiti = ctypes.CDLL(find_library('wapiti'))
+_wapiti = ctypes.CDLL(os.path.join(os.path.dirname(__file__), '_wapiti.so'))
 _libc = ctypes.CDLL(find_library('c'))
 
 #
