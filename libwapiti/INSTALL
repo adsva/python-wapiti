@@ -1,0 +1,11 @@
+
+Libwapiti installation
+
+ 1. Get the wapiti source from http://wapiti.limsi.fr/ 
+
+ 2. Ensure that make can find the source:
+    $ export WAPITI_SRC=/path/to/wapiti/src 
+
+ 3. Run make in the libwapiti directory: 
+    make install
+

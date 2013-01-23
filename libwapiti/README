@@ -1,0 +1,12 @@
+libwapiti is a shared library that adds a thin api layer on top of
+wapiti (http://wapiti.limsi.fr), a very nice sequence labeling tool
+written by Thomas Lavergne.
+
+The API currently handles: 
+
+ * Creating wapiti models
+ * Training the model on BIO-formatted sequences with regex features
+ * Labeling BIO-formatted input strings
+
+
+
