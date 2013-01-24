@@ -160,17 +160,12 @@ _wapiti.api_load_model.restype = ctypes.POINTER(ModelType)
 _wapiti.api_add_train_seq.argtypes = [ctypes.POINTER(ModelType), ctypes.c_char_p]
 
 # Labeling
-# Avoids memory leaks when returning char pointers allocated in C by converting
-# a copy to a python string and freeing the original pointer.
 #
-def wrap_api_label_seq(model, line):
-    p = _wapiti.api_label_seq(model, line)
-    label = ctypes.string_at(ctypes.cast(p, ctypes.c_char_p))
-    _libc.free(p)
-    return label
-
+# The restype is set to POINTER(c_char) instead of c_char_p so we can
+# handle the conversion to python string and make sure the c-allocated
+# data is freed.
 _wapiti.api_label_seq.argtypes = [ctypes.POINTER(ModelType), ctypes.c_char_p]
-_wapiti.api_label_seq.restype = ctypes.c_void_p
+_wapiti.api_label_seq.restype = ctypes.POINTER(ctypes.c_char)
 
 _libc.free.argtypes = [ctypes.c_void_p]
 
@@ -288,7 +283,12 @@ class Model:
         The input string is labeled as one sequence, i.e. double
         linebreaks are ignored.
         """
-        labeled = wrap_api_label_seq(self._model, lines)
+        cp = _wapiti.api_label_seq(self._model, lines)
+
+        # Convert to python string and free the c-allocated data
+        labeled = ctypes.string_at(cp)
+        _libc.free(cp)
+
         return labeled
 
 
