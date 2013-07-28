@@ -33,8 +33,9 @@ static raw_t *api_str2raw(char *seq) {
       size *= 1.4;
       raw = xrealloc(raw, sizeof(raw_t) + sizeof(char *) * size);
     }
-    raw->lines[cnt++] = strdup(line);
+    raw->lines[cnt++] = xstrdup(line);
   }
+  raw = xrealloc(raw, sizeof(raw_t) + sizeof(char *) * cnt);
   raw->len = cnt;
   return raw;
 }
@@ -184,7 +185,7 @@ void api_load_patterns(mdl_t *mdl, char *lines) {
     line[0] = tolower(line[0]);
 
     // Avoid messing with the original pattern string
-    char *patstr = strdup(line);
+    char *patstr = xstrdup(line);
 
     // Compile pattern and add it to the list
     pat_t *pat = pat_comp(patstr);
