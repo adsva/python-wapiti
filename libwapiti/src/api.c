@@ -121,10 +121,17 @@ mdl_t *api_load_model(char *filename, opt_t *options) {
 
 /*
  * Splits a raw BIO-formatted string into lines, annotates them and
- * returns a copy of input string with an added label column.
+ * returns a column of labels. If the input flag is true the input
+ * columns are also included in the output string.
  */
-char *api_label_seq(mdl_t *mdl, char *lines) {
-    size_t outsize = strlen(lines);
+char *api_label_seq(mdl_t *mdl, char *lines, bool input) {
+    size_t outsize = 0;
+    // If the output string should contain the input,
+    // it needs to be at least that big
+    if (input) {
+      outsize += strlen(lines);
+    }
+
 	qrk_t *lbls = mdl->reader->lbl;
     raw_t *raw = api_str2raw(lines);
 	seq_t *seq = rdr_raw2seq(mdl->reader, raw, mdl->opt->check);
@@ -137,8 +144,6 @@ char *api_label_seq(mdl_t *mdl, char *lines) {
     tag_viterbi(mdl, seq, out, scs, psc);
 
     // Allocate some intial memory for the output string.
-    // Account for the input string + a little extra per line for
-    // label and whitespace
     outsize += 5 * T;
     char *lblseq = xmalloc(outsize);
     const char *lblstr;
@@ -148,14 +153,24 @@ char *api_label_seq(mdl_t *mdl, char *lines) {
 	// Build the output string
     for (int t = 0; t < T; t++) {
       lblstr = qrk_id2str(lbls, out[t]);
-      // Size: input line  + \t + label + \n + \0
-      rowsize = strlen(raw->lines[t]) + strlen(lblstr) + 3;
+      // Size: label + \n + \0
+      rowsize = strlen(lblstr) + 2;
+      if (input) {
+        // Add: input line  + \t
+        rowsize += strlen(raw->lines[t]) + 1;
+      }
       if (pos+rowsize > outsize) {
         outsize += rowsize*(T-t);
         lblseq = xrealloc(lblseq, outsize);
       }
-      pos += snprintf(lblseq+pos, outsize-pos, "%s\t%s\n", raw->lines[t], lblstr);
+      if (input) {
+        pos += snprintf(lblseq+pos, outsize-pos, "%s\t", raw->lines[t]);
+      }
+      pos += snprintf(lblseq+pos, outsize-pos, "%s\n", lblstr);
     }
+
+    // Reallocate the final string to save memory
+    lblseq = xrealloc(lblseq, pos);
     // Terminate the output string
     lblseq[pos] = '\0';
 

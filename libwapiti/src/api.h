@@ -1,7 +1,7 @@
 #include "model.h"
 #include "trainers.h"
 
-char *api_label_seq(mdl_t *mdl, char *strseq);
+char *api_label_seq(mdl_t *mdl, char *strseq, bool input);
 void api_load_patterns(mdl_t *mdl, char *lines);
 void api_add_train_seq(mdl_t *mdl, char *lines);
 void api_train(mdl_t *mdl);
