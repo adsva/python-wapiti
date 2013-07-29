@@ -170,7 +170,7 @@ char *api_label_seq(mdl_t *mdl, char *lines, bool input) {
     }
 
     // Reallocate the final string to save memory
-    lblseq = xrealloc(lblseq, pos);
+    lblseq = xrealloc(lblseq, pos+1);
     // Terminate the output string
     lblseq[pos] = '\0';
 
