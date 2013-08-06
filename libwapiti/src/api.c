@@ -137,6 +137,14 @@ char *api_label_seq(mdl_t *mdl, char *lines, bool input) {
 	seq_t *seq = rdr_raw2seq(mdl->reader, raw, mdl->opt->check);
 	const int T = seq->len;
 
+    // When empty sequence is passed, return an empty string as response:
+    // subsequent mallocs will fail otherwise because of zero T.
+	if (!T) {
+	  rdr_freeraw(raw);
+	  rdr_freeseq(seq);
+	  return xstrdup("");
+	}
+
 	uint32_t *out = xmalloc(sizeof(uint32_t) * T);
 	double *psc = xmalloc(sizeof(double) * T);
 	double *scs = xmalloc(sizeof(double));
