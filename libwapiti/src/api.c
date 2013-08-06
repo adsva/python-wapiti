@@ -116,6 +116,7 @@ mdl_t *api_load_model(char *filename, opt_t *options) {
   if (file == NULL)
     pfatal("cannot open input model file: %s", filename);
   mdl_load(mdl, file);
+  fclose(file);
   return mdl;
 }
 

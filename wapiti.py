@@ -244,7 +244,8 @@ class Model:
             )
         else:
             if self.options.pattern:
-                self.patterns = open(self.options.pattern).read()
+                with open(self.options.pattern) as fp:
+                    self.patterns = fp.read()
             else:
                 self.patterns = patterns
 
@@ -271,10 +272,14 @@ class Model:
 
 
     def save(self, modelfile):
-        if type(modelfile) != file:
-            modelfile = open(modelfile, 'w')
-        fp = ctypes.pythonapi.PyFile_AsFile(modelfile)
-        _wapiti.api_save_model(self._model, fp)
+        if isinstance(modelfile, file):
+            fp = ctypes.pythonapi.PyFile_AsFile(modelfile)
+            _wapiti.api_save_model(self._model, fp)
+        else:
+            with open(modelfile, 'w') as py_f:
+                fp = ctypes.pythonapi.PyFile_AsFile(py_f)
+                _wapiti.api_save_model(self._model, fp)
+
 
     def label_sequence(self, lines, include_input=False):
         """
