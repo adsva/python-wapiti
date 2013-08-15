@@ -14,7 +14,7 @@ import logging
 import multiprocessing
 from ctypes.util import find_library
 
-_wapiti = ctypes.CDLL(os.path.join(os.path.dirname(__file__), '_wapiti.so'))
+_wapiti = ctypes.CDLL(os.path.join(os.path.dirname(__file__), 'libwapiti.so'))
 _libc = ctypes.CDLL(find_library('c'))
 
 #
