@@ -4,8 +4,7 @@ from distutils.core import setup, Extension
 
 wapiti_src_c = ['Wapiti/src/' + i for i in filter(
     lambda x:x.endswith("c"), os.listdir("Wapiti/src"))]
-wapiti_src_h = ['Wapiti/src/' + i for i in filter(
-    lambda x:x.endswith("h"), os.listdir("Wapiti/src"))]
+wapiti_src_c.append('libwapiti/src/api.c')
 
 setup(name='python wapiti bindings',
       version='0.1',
@@ -14,14 +13,12 @@ setup(name='python wapiti bindings',
       long_description="",
       author="Adam Svanberg",
       author_email="asvanberg@gmail.com",
-      packages=['wapiti'],
       ext_modules=[
           Extension(
               'libwapiti',
-              wapiti_src_c,
+              sources=wapiti_src_c,
               extra_compile_args=['-std=c99'],
-              depends=wapiti_src_h,
-              include_dirs=["wapiti/src", "libwapiti"],
+              include_dirs=["Wapiti/src", "libwapiti"],
               extra_link_args=['-lm', '-lpthread'],
           )
       ],)
