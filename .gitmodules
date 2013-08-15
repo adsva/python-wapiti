@@ -1,0 +1,4 @@
+[submodule "wapiti"]
+	path = wapiti
+	url = https://github.com/Jekub/Wapiti.git
+	branch = master
