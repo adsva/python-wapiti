@@ -145,39 +145,46 @@ char *api_label_seq(mdl_t *mdl, char *lines, bool input) {
 	  rdr_freeseq(seq);
 	  return xstrdup("");
 	}
+    const uint32_t N = mdl->opt->nbest;
+	uint32_t *out = xmalloc(sizeof(uint32_t) * T * N);
+	double *psc = xmalloc(sizeof(double) * T * N);
+	double *scs = xmalloc(sizeof(double) * N);
 
-	uint32_t *out = xmalloc(sizeof(uint32_t) * T);
-	double *psc = xmalloc(sizeof(double) * T);
-	double *scs = xmalloc(sizeof(double));
-
-    tag_viterbi(mdl, seq, out, scs, psc);
+    if(N == 1)
+        tag_viterbi(mdl, seq, out, scs, psc);
+    else
+        tag_nbviterbi(mdl, seq, N, out, scs, psc);
 
     // Allocate some intial memory for the output string.
-    outsize += 5 * T;
+    outsize += 5 * T * N;
     char *lblseq = xmalloc(outsize);
     const char *lblstr;
     size_t rowsize;
     size_t pos = 0;
 
 	// Build the output string
-    for (int t = 0; t < T; t++) {
-      lblstr = qrk_id2str(lbls, out[t]);
-      // Size: label + \n + \0
-      rowsize = strlen(lblstr) + 2;
-      if (input) {
-        // Add: input line  + \t
-        rowsize += strlen(raw->lines[t]) + 1;
+    for (uint32_t n = 0; n < N; n++) {
+      for (int t = 0; t < T; t++) {
+        lblstr = qrk_id2str(lbls, out[t * N + n]);
+        // Size: label + \n + \0
+        rowsize = strlen(lblstr) + 2;
+        if (input) {
+          // Add: input line  + \t
+          rowsize += strlen(raw->lines[t]) + 1;
+        }
+        if (pos+rowsize > outsize) {
+          outsize += rowsize * ((T - t) * (N - n));
+          lblseq = xrealloc(lblseq, outsize);
+        }
+        if (input) {
+          pos += snprintf(lblseq+pos, outsize-pos, "%s\t", raw->lines[t]);
+        }
+        pos += snprintf(lblseq+pos, outsize-pos, "%s\n", lblstr);
       }
-      if (pos+rowsize > outsize) {
-        outsize += rowsize*(T-t);
-        lblseq = xrealloc(lblseq, outsize);
+      if(N > 1 && n < N - 1){
+        pos += snprintf(lblseq+pos, outsize-pos, "\n");
       }
-      if (input) {
-        pos += snprintf(lblseq+pos, outsize-pos, "%s\t", raw->lines[t]);
-      }
-      pos += snprintf(lblseq+pos, outsize-pos, "%s\n", lblstr);
-    }
-
+  }
     // Reallocate the final string to save memory
     lblseq = xrealloc(lblseq, pos+1);
     // Terminate the output string
