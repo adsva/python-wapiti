@@ -17,7 +17,7 @@ wapiti_src_c = ['Wapiti/src/' + i for i in filter(
 wapiti_src_c.append('libwapiti/src/api.c')
 
 
-setup(name='python wapiti bindings',
+setup(name='wapiti',
       version='0.1',
       py_modules=['wapiti'],
       description="Python bindings for libwapiti",
