@@ -1,22 +1,35 @@
+import os
+from subprocess import check_call
 from distutils.core import setup, Extension
 
-setup(name='python wapiti bindings',
+here = os.path.abspath(os.path.dirname(__file__))
+
+
+def update_submodule():
+    if os.path.exists(os.path.join(here, '.git')):
+        os.chdir(here)
+        check_call(['git', 'submodule', 'init'])
+        check_call(['git', 'submodule', 'update'])
+update_submodule()
+
+wapiti_src_c = ['Wapiti/src/' + i for i in filter(
+    lambda x:x.endswith("c"), os.listdir("Wapiti/src"))]
+wapiti_src_c.append('libwapiti/src/api.c')
+
+
+setup(name='wapiti',
       version='0.1',
       py_modules=['wapiti'],
       description="Python bindings for libwapiti",
       long_description="",
       author="Adam Svanberg",
       author_email="asvanberg@gmail.com",
-      packages=['wapiti'],
       ext_modules=[
           Extension(
-              '_wapiti',
-              sources=['wapiti/src/bcd.c', 'wapiti/src/lbfgs.c', 'wapiti/src/pattern.c', 'wapiti/src/reader.c', 'wapiti/src/thread.c', 'wapiti/src/wapiti.c',
-              'wapiti/src/decoder.c', 'wapiti/src/model.c', 'wapiti/src/progress.c', 'wapiti/src/rprop.c', 'wapiti/src/tools.c', 'wapiti/src/gradient.c',
-              'wapiti/src/options.c', 'wapiti/src/quark.c', 'wapiti/src/sgdl1.c', 'wapiti/src/vmath.c', 'libwapiti/src/api.c'],
-              include_dirs=['wapiti/src', 'libwapiti/src'],
+              'libwapiti',
+              sources=wapiti_src_c,
               extra_compile_args=['-std=c99'],
+              include_dirs=["Wapiti/src", "libwapiti"],
               extra_link_args=['-lm', '-lpthread'],
           )
-      ],
-    )
+      ],)
