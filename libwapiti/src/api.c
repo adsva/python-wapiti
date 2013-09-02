@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
+#include <inttypes.h>
 
 #include "wapiti.h"
 #include "gradient.h"
@@ -270,6 +271,15 @@ void api_train(mdl_t *mdl) {
 
 /* Saves the model to a file. */
 void api_save_model(mdl_t *mdl, FILE *file) {
+  // If requested compact the model.
+  if (mdl->opt->compact) {
+    const uint64_t O = mdl->nobs;
+    const uint64_t F = mdl->nftr;
+    info("* Compacting the model\n");
+    mdl_compact(mdl);
+    info("    %8"PRIu64" observations removed\n", O - mdl->nobs);
+    info("    %8"PRIu64" features removed\n", F - mdl->nftr);
+  }
   mdl_save(mdl, file);
 }
 
