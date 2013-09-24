@@ -14,7 +14,13 @@ import logging
 import multiprocessing
 from ctypes.util import find_library
 
-_wapiti = ctypes.CDLL(os.path.join(os.path.dirname(__file__), 'libwapiti.so'))
+
+_wapiti = ctypes.CDLL(
+    filter(
+        lambda x: x.endswith('.so'),
+        os.listdir(os.path.dirname(__file__))
+    ).pop()
+)
 _libc = ctypes.CDLL(find_library('c'))
 
 #
@@ -265,9 +271,10 @@ class Model:
         """
         _wapiti.api_add_train_seq(self._model, sequence)
 
-    def train(self, sequences=[]):
-        for seq in sequences:
-            _wapiti.api_add_train_seq(self._model, seq)
+    def train(self, sequences=None):
+        if sequences:
+            for seq in sequences:
+                _wapiti.api_add_train_seq(self._model, seq)
         _wapiti.api_train(self._model)
 
 
