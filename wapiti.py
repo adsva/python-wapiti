@@ -16,10 +16,10 @@ from ctypes.util import find_library
 
 
 _wapiti = ctypes.CDLL(
-    filter(
+    list(filter(
         lambda x: x.endswith('.so'),
         os.listdir(os.path.dirname(__file__))
-    ).pop()
+    )).pop()
 )
 _libc = ctypes.CDLL(find_library('c'))
 
