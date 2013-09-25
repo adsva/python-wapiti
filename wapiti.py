@@ -16,10 +16,10 @@ from ctypes.util import find_library
 
 
 _wapiti = ctypes.CDLL(
-    list(filter(
+    os.path.join(os.path.dirname(__file__),list(filter(
         lambda x: x.endswith('.so'),
         os.listdir(os.path.dirname(__file__))
-    )).pop()
+    )).pop())
 )
 _libc = ctypes.CDLL(find_library('c'))
 
@@ -31,7 +31,9 @@ class FILEType(ctypes.Structure):
     """stdio.h FILE type"""
     pass
 FILE_p = ctypes.POINTER(FILEType)
-PyFile_AsFile = ctypes.pythonapi.PyFile_AsFile
+PyFile_AsFile = lambda x:ctypes.pythonapi.fdopen(
+    ctypes.pythonapi.PyObject_AsFileDescriptor(x,'w')
+)
 PyFile_AsFile.restype = FILE_p
 PyFile_AsFile.argtypes = [ctypes.py_object]
 
@@ -226,7 +228,6 @@ class Model:
         # Make sure encoding is taken care of when passing strings
         self.encoding = encoding
         ctypes.set_conversion_mode(encoding, 'replace')
-
         if 'nthread' not in options:
             # If thread count isn't given, use number of processors
             options['nthread'] = multiprocessing.cpu_count()
