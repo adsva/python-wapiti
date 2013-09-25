@@ -1,0 +1,6 @@
+#!python
+#encoding:utf-8
+from wapiti.script import run_script
+
+if __name__ == '__main__':
+    run_script()
