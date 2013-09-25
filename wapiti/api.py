@@ -9,7 +9,7 @@ __version__ = "0.1"
 
 import re
 import os
-import sys
+import six
 import ctypes
 import logging
 import multiprocessing
@@ -252,8 +252,6 @@ class Model:
 
         # Make sure encoding is taken care of when passing strings
         self.encoding = encoding
-        if sys.version_info[0] == 2:  # py3 no set_conversion_mode method
-            ctypes.set_conversion_mode(encoding, 'replace')
         if 'nthread' not in options:
             # If thread count isn't given, use number of processors
             options['nthread'] = multiprocessing.cpu_count()
@@ -262,7 +260,10 @@ class Model:
         for field in _default_options._fields_:
             field_name = field[0]
             if not field_name in options:
-                options[field_name] = getattr(_default_options, field_name)
+                field_value = getattr(_default_options, field_name)
+                if isinstance(field_value, six.text_type):
+                    field_value = field_value.encode(self.encoding)
+                options[field_name] = field_value
         if options['maxiter'] == 0:
             # Wapiti specifies that 0 means max int size for this option.
             options['maxiter'] = 2147483647
@@ -295,11 +296,15 @@ class Model:
         """
         Add a string of BIO-formatted lines to the training set
         """
+        if isinstance(sequence, six.text_type):
+            sequence = sequence.encode(self.encoding)
         _wapiti.api_add_train_seq(self._model, sequence)
 
     def train(self, sequences=None):
         if sequences:
             for seq in sequences:
+                if isinstance(seq, six.text_type):
+                    seq = seq.encode(self.encoding)
                 _wapiti.api_add_train_seq(self._model, seq)
         _wapiti.api_train(self._model)
 
@@ -323,6 +328,8 @@ class Model:
         If include_input is True, the label column is appended to the
         input columns.
         """
+        if isinstance(lines, six.text_type):
+            lines = lines.encode(self.encoding)
         cp = _wapiti.api_label_seq(self._model, lines, include_input)
 
         # Convert to python string and free the c-allocated data

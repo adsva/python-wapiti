@@ -1,6 +1,7 @@
 import os
 from subprocess import check_call
-from distutils.core import setup, Extension
+from setuptools import setup, find_packages
+from setuptools.extension import Extension
 
 here = os.path.abspath(os.path.dirname(__file__))
 
@@ -19,7 +20,7 @@ wapiti_src_c.append('libwapiti/src/api.c')
 
 setup(name='libwapiti',
       version='0.1',
-      py_modules=['wapiti.api', 'wapiti.script'],
+      packages=find_packages(),
       description="Python bindings for libwapiti",
       long_description="",
       author="Adam Svanberg",
@@ -33,5 +34,6 @@ setup(name='libwapiti',
               extra_link_args=['-lm', '-lpthread'],
           )
       ],
-      scripts=['scripts/wapiti',]
+      scripts=['scripts/wapiti',],
+      install_requires=['six',],
 )
