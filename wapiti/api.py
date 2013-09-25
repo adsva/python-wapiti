@@ -15,11 +15,18 @@ import multiprocessing
 from ctypes.util import find_library
 
 
+_libwapiti_root_path = os.path.join(
+    os.path.abspath(os.path.dirname(__file__)),
+    '../',
+)
 _wapiti = ctypes.CDLL(
-    os.path.join(os.path.dirname(__file__), list(filter(
-        lambda x: re.search('^libwapiti.*?\.so$', x),
-        os.listdir(os.path.dirname(__file__))
-    )).pop())
+    os.path.join(
+        _libwapiti_root_path,
+        list(filter(
+            lambda x: re.search('^libwapiti.*?\.so$', x),
+            os.listdir(_libwapiti_root_path)
+        )).pop()
+    )
 )
 _libc = ctypes.CDLL(find_library('c'))
 
