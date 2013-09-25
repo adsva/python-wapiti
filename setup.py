@@ -17,7 +17,7 @@ wapiti_src_c = ['cwapiti/src/' + i for i in filter(
 wapiti_src_c.append('libwapiti/src/api.c')
 
 
-setup(name='wapiti',
+setup(name='libwapiti',
       version='0.1',
       py_modules=['wapiti.api', 'wapiti.script'],
       description="Python bindings for libwapiti",
@@ -33,4 +33,5 @@ setup(name='wapiti',
               extra_link_args=['-lm', '-lpthread'],
           )
       ],
+      scripts=['scripts/wapiti',]
 )

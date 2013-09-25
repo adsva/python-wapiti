@@ -86,7 +86,7 @@ def parse_command():
     return option_dict, parser
 
 
-def main():
+def run_script():
     # Emulate wapiti functionality. Not really meaningful except for
     # testing the python bindings
 
@@ -121,7 +121,3 @@ def main():
         doctest.testmod()
     else:
         parser.error("Invalid action")
-
-
-if __name__ == '__main__':
-    main()
