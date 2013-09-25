@@ -7,17 +7,19 @@ sequence labeling tool written by Thomas Lavergne.
 __author__ = "Adam Svanberg <asvanberg@gmail.com>"
 __version__ = "0.1"
 
+import re
 import os
 import sys
 import ctypes
 import logging
+import optparse
 import multiprocessing
 from ctypes.util import find_library
 
 
 _wapiti = ctypes.CDLL(
-    os.path.join(os.path.dirname(__file__),list(filter(
-        lambda x: x.endswith('.so'),
+    os.path.join(os.path.dirname(__file__), list(filter(
+        lambda x: re.search('^libwapiti.*?\.so$', x),
         os.listdir(os.path.dirname(__file__))
     )).pop())
 )
@@ -27,15 +29,17 @@ _libc = ctypes.CDLL(find_library('c'))
 # Helper types
 #
 
+
 class FILEType(ctypes.Structure):
     """stdio.h FILE type"""
     pass
 FILE_p = ctypes.POINTER(FILEType)
-PyFile_AsFile = lambda x:ctypes.pythonapi.fdopen(
-    ctypes.pythonapi.PyObject_AsFileDescriptor(x,'w')
+PyFile_AsFile = lambda x: ctypes.pythonapi.fdopen(
+    ctypes.pythonapi.PyObject_AsFileDescriptor(x, 'w')
 )
 PyFile_AsFile.restype = FILE_p
 PyFile_AsFile.argtypes = [ctypes.py_object]
+
 
 class TmsType(ctypes.Structure):
     """clock.h timer type"""
@@ -44,27 +48,34 @@ class TmsType(ctypes.Structure):
         ('tms_stime', ctypes.c_long),
         ('tms_cutime', ctypes.c_long),
         ('tms_cstime', ctypes.c_long)
-        ]
+    ]
 
 #
 # Wapiti types
 #
+
 
 class LbfgsType(ctypes.Structure):
     _fields_ = [
         ('clip', ctypes.c_bool),
         ('histsz', ctypes.c_uint32),
         ('maxls', ctypes.c_uint32),
-        ]
+    ]
+
+
 class Sgdl1Type(ctypes.Structure):
     _fields_ = [
         ('eta0', ctypes.c_double),
         ('alpha', ctypes.c_double),
-        ]
+    ]
+
+
 class BcdType(ctypes.Structure):
     _fields_ = [
         ('kappa', ctypes.c_double),
-        ]
+    ]
+
+
 class RpropType(ctypes.Structure):
     _fields_ = [
         ('stpmin', ctypes.c_double),
@@ -72,7 +83,8 @@ class RpropType(ctypes.Structure):
         ('stpinc', ctypes.c_double),
         ('stpdec', ctypes.c_double),
         ('cutoff', ctypes.c_bool),
-        ]
+    ]
+
 
 class OptType(ctypes.Structure):
     _fields_ = [
@@ -107,7 +119,7 @@ class OptType(ctypes.Structure):
         ('lblpost', ctypes.c_bool),
         ('nbest', ctypes.c_uint32),
         ('force', ctypes.c_bool),
-        ]
+    ]
 
 
 _default_options = OptType.in_dll(_wapiti, "opt_defaults")
@@ -121,7 +133,6 @@ ALGORITHMS = [
     'rprop-',
     'auto',
 ]
-
 
 
 class ModelType(ctypes.Structure):
@@ -165,14 +176,16 @@ _wapiti.api_load_model.restype = ctypes.POINTER(ModelType)
 
 
 # Training
-_wapiti.api_add_train_seq.argtypes = [ctypes.POINTER(ModelType), ctypes.c_char_p]
+_wapiti.api_add_train_seq.argtypes = [
+    ctypes.POINTER(ModelType), ctypes.c_char_p]
 
 # Labeling
 #
 # The restype is set to POINTER(c_char) instead of c_char_p so we can
 # handle the conversion to python string and make sure the c-allocated
 # data is freed.
-_wapiti.api_label_seq.argtypes = [ctypes.POINTER(ModelType), ctypes.c_char_p, ctypes.c_bool]
+_wapiti.api_label_seq.argtypes = [
+    ctypes.POINTER(ModelType), ctypes.c_char_p, ctypes.c_bool]
 _wapiti.api_label_seq.restype = ctypes.POINTER(ctypes.c_char)
 
 _libc.free.argtypes = [ctypes.c_void_p]
@@ -182,19 +195,24 @@ _libc.free.argtypes = [ctypes.c_void_p]
 # The logging functions in api_logs are replaced by standard python
 # logging callbacks. Since the error log is supposed to be fatal, we
 # wrap that logger to also raise SystemExit.
+
+
 class NullHandler(logging.Handler):
     def emit(self, record):
         pass
 
 logger = logging.getLogger('wapiti')
-logger.addHandler(NullHandler()) # Avoids warnings in non-logging applications
+logger.addHandler(NullHandler())  # Avoids warnings in non-logging applications
+
 
 def fatal(msg):
     logger.error("%s - exiting", msg)
     raise SystemExit(msg)
 
-LogFunc = ctypes.CFUNCTYPE(None, ctypes.c_char_p)    # Define the callback (retval, *args)
-api_logs = (LogFunc * 4).in_dll(_wapiti, "api_logs") # The array of 4 function pointers
+#Define the callback (retval, *args)
+LogFunc = ctypes.CFUNCTYPE(None, ctypes.c_char_p)
+#The array of 4 function pointers
+api_logs = (LogFunc * 4).in_dll(_wapiti, "api_logs")
 api_logs[0] = LogFunc(fatal)                         # api_logs[FATAL]
 api_logs[1] = LogFunc(fatal)                         # api_logs[PFATAL]
 api_logs[2] = LogFunc(logger.warning)                # api_logs[WARNING]
@@ -217,7 +235,8 @@ class Model:
 
     Example:
     >>> m = Model(patterns='*\nU:Wrd X=%x[0,0]')
-    >>> m.add_training_sequence('We PRPsaw VBD\nthe DT\nlittle JJ\nyellow JJ\ndog NN')
+    >>> text = 'We PRPsaw VBD\nthe DT\nlittle JJ\nyellow JJ\ndog NN'
+    >>> m.add_training_sequence(text)
     >>> m.train()
     >>> m.label_sequence('We\saw\nthe\nlittle\nyellow\ndog')
     'We\\saw\tVBD\nthe\tDT\nlittle\tJJ\nyellow\tJJ\ndog\tNN\n'
@@ -261,7 +280,6 @@ class Model:
                 self.patterns
             )
 
-
     def __del__(self):
         if _wapiti and self._model:
             _wapiti.api_free_model(self._model)
@@ -278,7 +296,6 @@ class Model:
                 _wapiti.api_add_train_seq(self._model, seq)
         _wapiti.api_train(self._model)
 
-
     def save(self, modelfile):
         if isinstance(modelfile, file):
             fp = ctypes.pythonapi.PyFile_AsFile(modelfile)
@@ -287,7 +304,6 @@ class Model:
             with open(modelfile, 'w') as py_f:
                 fp = ctypes.pythonapi.PyFile_AsFile(py_f)
                 _wapiti.api_save_model(self._model, fp)
-
 
     def label_sequence(self, lines, include_input=False):
         """
@@ -309,20 +325,13 @@ class Model:
         return labeled
 
 
-if __name__ == '__main__':
-    # Emulate wapiti functionality. Not really meaningful except for
-    # testing the python bindings
-
-    logger.setLevel(logging.DEBUG)
-    logger.addHandler(logging.StreamHandler())
-
-    import optparse
-
+def parse_command():
     parser = optparse.OptionParser(
         "usage: %prog train|label|test [options] [infile] [outfile]"
     )
 
     option_dict = {}
+
     def dictsetter(option, opt_str, value, *args, **kwargs):
         option_dict[option.dest] = value
 
@@ -394,8 +403,17 @@ if __name__ == '__main__':
                       action='callback', callback=dictsetter)
     parser.add_option('--force', dest='force', type='int',
                       action='callback', callback=dictsetter)
+    return option_dict, parser
 
-    options, args = parser.parse_args()
+
+def main():
+    # Emulate wapiti functionality. Not really meaningful except for
+    # testing the python bindings
+
+    logger.setLevel(logging.DEBUG)
+    logger.addHandler(logging.StreamHandler())
+    option_dict, parser = parse_command()
+    _, args = parser.parse_args()
 
     action = len(args) > 0 and args[0] or None
     if not action:
@@ -425,5 +443,5 @@ if __name__ == '__main__':
         parser.error("Invalid action")
 
 
-
-
+if __name__ == '__main__':
+    main()
