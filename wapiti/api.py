@@ -260,14 +260,14 @@ class Model:
         for field in _default_options._fields_:
             field_name = field[0]
             if not field_name in options:
-                field_value = getattr(_default_options, field_name)
-                if isinstance(field_value, six.text_type):
-                    field_value = field_value.encode(self.encoding)
-                options[field_name] = field_value
+                options[field_name] = getattr(_default_options, field_name)
         if options['maxiter'] == 0:
             # Wapiti specifies that 0 means max int size for this option.
             options['maxiter'] = 2147483647
-
+        #python3 support
+        for field_name, field_value in options.items():
+            if isinstance(field_value, six.text_type):
+                options[field_name] = field_value.encode(self.encoding)
         self.options = OptType(**options)
 
         # Load model from file if specified
