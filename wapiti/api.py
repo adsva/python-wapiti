@@ -9,6 +9,7 @@ __version__ = "0.1"
 
 import re
 import os
+import sys
 import ctypes
 import logging
 import multiprocessing
@@ -251,7 +252,8 @@ class Model:
 
         # Make sure encoding is taken care of when passing strings
         self.encoding = encoding
-        ctypes.set_conversion_mode(encoding, 'replace')
+        if sys.version_info[0] == 2:  # py3 no set_conversion_mode method
+            ctypes.set_conversion_mode(encoding, 'replace')
         if 'nthread' not in options:
             # If thread count isn't given, use number of processors
             options['nthread'] = multiprocessing.cpu_count()
