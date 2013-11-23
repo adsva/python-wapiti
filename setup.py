@@ -19,12 +19,13 @@ wapiti_src_c.append('libwapiti/src/api.c')
 
 
 setup(name='libwapiti',
-      version='0.1',
+      version='0.2',
       packages=find_packages(),
       description="Python bindings for libwapiti",
       long_description="",
       author="Adam Svanberg",
       author_email="asvanberg@gmail.com",
+      include_package_data=True,
       ext_modules=[
           Extension(
               'libwapiti',

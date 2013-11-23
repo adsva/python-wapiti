@@ -1,3 +1,5 @@
 include README.md
 include MANIFEST.in
-recursive-include data cwapiti libwapiti scripts *
+recursive-include data *
+recursive-include cwapiti *
+recursive-include libwapiti *
