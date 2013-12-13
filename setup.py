@@ -35,6 +35,6 @@ setup(name='libwapiti',
               extra_link_args=['-lm', '-lpthread'],
           )
       ],
-      scripts=['scripts/wapiti',],
+      scripts=['scripts/wapiti.py',],
       install_requires=['six',],
 )
