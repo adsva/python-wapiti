@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import os
 from subprocess import check_call
 from setuptools import setup, find_packages
