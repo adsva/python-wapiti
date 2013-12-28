@@ -40,9 +40,7 @@ class FILEType(ctypes.Structure):
     """stdio.h FILE type"""
     pass
 FILE_p = ctypes.POINTER(FILEType)
-PyFile_AsFile = lambda x: ctypes.pythonapi.fdopen(
-    ctypes.pythonapi.PyObject_AsFileDescriptor(x, 'w')
-)
+PyFile_AsFile = ctypes.pythonapi.PyFile_AsFile
 PyFile_AsFile.restype = FILE_p
 PyFile_AsFile.argtypes = [ctypes.py_object]
 
@@ -310,11 +308,11 @@ class Model:
 
     def save(self, modelfile):
         if isinstance(modelfile, file):
-            fp = ctypes.pythonapi.PyFile_AsFile(modelfile)
+            fp = PyFile_AsFile(modelfile)
             _wapiti.api_save_model(self._model, fp)
         else:
             with open(modelfile, 'w') as py_f:
-                fp = ctypes.pythonapi.PyFile_AsFile(py_f)
+                fp = PyFile_AsFile(py_f)
                 _wapiti.api_save_model(self._model, fp)
 
     def label_sequence(self, lines, include_input=False):
