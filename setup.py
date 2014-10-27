@@ -20,7 +20,7 @@ wapiti_src_c.append('libwapiti/src/api.c')
 
 
 setup(name='libwapiti',
-      version='0.2',
+      version='0.2.1',
       packages=find_packages(),
       description="Python bindings for libwapiti",
       long_description="",
