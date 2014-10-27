@@ -39,10 +39,6 @@ _libc = ctypes.CDLL(find_library('c'))
 class FILEType(ctypes.Structure):
     """stdio.h FILE type"""
     pass
-FILE_p = ctypes.POINTER(FILEType)
-PyFile_AsFile = ctypes.pythonapi.PyFile_AsFile
-PyFile_AsFile.restype = FILE_p
-PyFile_AsFile.argtypes = [ctypes.py_object]
 
 
 class TmsType(ctypes.Structure):
@@ -268,6 +264,9 @@ class Model:
                 options[field_name] = field_value.encode(self.encoding)
         self.options = OptType(**options)
 
+        if patterns:
+            patterns = patterns.encode(self.encoding)
+
         # Load model from file if specified
         if self.options.model:
             self._model = _wapiti.api_load_model(
@@ -306,14 +305,11 @@ class Model:
                 _wapiti.api_add_train_seq(self._model, seq)
         _wapiti.api_train(self._model)
 
-    def save(self, modelfile):
-        if isinstance(modelfile, file):
-            fp = PyFile_AsFile(modelfile)
-            _wapiti.api_save_model(self._model, fp)
+    def save(self, filename):
+        if isinstance(filename, six.text_type):
+            _wapiti.api_save_model(self._model, filename.encode("utf8"))
         else:
-            with open(modelfile, 'w') as py_f:
-                fp = PyFile_AsFile(py_f)
-                _wapiti.api_save_model(self._model, fp)
+            raise TypeError("The file name must be unicode type")
 
     def label_sequence(self, lines, include_input=False):
         """
