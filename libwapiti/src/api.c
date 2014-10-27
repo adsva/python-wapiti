@@ -270,7 +270,7 @@ void api_train(mdl_t *mdl) {
 }
 
 /* Saves the model to a file. */
-void api_save_model(mdl_t *mdl, FILE *file) {
+void api_save_model(mdl_t *mdl, char *filename) {
   // If requested compact the model.
   if (mdl->opt->compact) {
     const uint64_t O = mdl->nobs;
@@ -280,7 +280,11 @@ void api_save_model(mdl_t *mdl, FILE *file) {
     info("    %8"PRIu64" observations removed\n", O - mdl->nobs);
     info("    %8"PRIu64" features removed\n", F - mdl->nftr);
   }
+  FILE *file = fopen(filename, "w");
+  if (file == NULL)
+    pfatal("cannot open output model file: %s", filename);
   mdl_save(mdl, file);
+  fclose(file);
 }
 
 /* Frees all memory used by the model. */
