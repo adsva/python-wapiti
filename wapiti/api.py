@@ -36,11 +36,6 @@ _libc = ctypes.CDLL(find_library('c'))
 #
 
 
-class FILEType(ctypes.Structure):
-    """stdio.h FILE type"""
-    pass
-
-
 class TmsType(ctypes.Structure):
     """clock.h timer type"""
     _fields_ = [
