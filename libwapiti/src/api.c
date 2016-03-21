@@ -126,7 +126,7 @@ mdl_t *api_load_model(char *filename, opt_t *options) {
  * returns a column of labels. If the input flag is true the input
  * columns are also included in the output string.
  */
-char *api_label_seq(mdl_t *mdl, char *lines, bool input) {
+char *api_label_seq(mdl_t *mdl, char *lines, bool input, double *scs) {
     size_t outsize = 0;
     // If the output string should contain the input,
     // it needs to be at least that big
@@ -149,7 +149,6 @@ char *api_label_seq(mdl_t *mdl, char *lines, bool input) {
     const uint32_t N = mdl->opt->nbest;
 	uint32_t *out = xmalloc(sizeof(uint32_t) * T * N);
 	double *psc = xmalloc(sizeof(double) * T * N);
-	double *scs = xmalloc(sizeof(double) * N);
 
     if(N == 1)
         tag_viterbi(mdl, seq, out, scs, psc);
@@ -192,7 +191,6 @@ char *api_label_seq(mdl_t *mdl, char *lines, bool input) {
     lblseq[pos] = '\0';
 
 	// Free memory used for this sequence
-	free(scs);
 	free(psc);
 	free(out);
 	rdr_freeraw(raw);
