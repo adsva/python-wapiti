@@ -180,7 +180,9 @@ _wapiti.api_add_train_seq.argtypes = [
 # handle the conversion to python string and make sure the c-allocated
 # data is freed.
 _wapiti.api_label_seq.argtypes = [
-    ctypes.POINTER(ModelType), ctypes.c_char_p, ctypes.c_bool]
+    ctypes.POINTER(ModelType), ctypes.c_char_p,
+    ctypes.c_bool,             ctypes.POINTER(ctypes.c_double)]
+
 _wapiti.api_label_seq.restype = ctypes.POINTER(ctypes.c_char)
 
 _libc.free.argtypes = [ctypes.c_void_p]
@@ -319,10 +321,17 @@ class Model:
         """
         if isinstance(lines, six.text_type):
             lines = lines.encode(self.encoding)
-        cp = _wapiti.api_label_seq(self._model, lines, include_input)
-
+        N = self.options.nbest
+        scs = (ctypes.c_double * N)()
+        cp = _wapiti.api_label_seq(self._model, lines, include_input, scs)
         # Convert to python string and free the c-allocated data
         labeled = ctypes.string_at(cp)
+        if scs and self.options.outsc:
+            new_labeled = []
+            for idx,line in enumerate(labeled.split('\n\n')):
+                new_line = '%f\n%s' % (scs[idx], line)
+                new_labeled.append(new_line)
+            labeled = '\n\n'.join(new_labeled)
         _libc.free(cp)
 
         return labeled
