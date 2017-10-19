@@ -100,7 +100,7 @@ def run_script():
         parser.error("Invalid action")
 
     infile = len(args) > 1 and open(args[1]) or sys.stdin
-    outfile = len(args) > 2 and open(args[2], 'w') or sys.stdout
+    outfile = len(args) > 2 and args[2] or '/dev/stdout'
 
     model = Model(**option_dict)
 
@@ -113,9 +113,9 @@ def run_script():
             parser.error("Labeling requires a model")
         if not infile:
             infile = sys.stdin
-        for sequence in infile.read().split('\n\n'):
-            outfile.write(model.label_sequence(sequence)+'\n')
-        outfile.close()
+        with open(outfile, 'wb') as writer:
+            for sequence in infile.read().split('\n\n'):
+                writer.write(model.label_sequence(sequence)+b'\n')
     elif action == 'test':
         import doctest
         doctest.testmod()
