@@ -25,9 +25,7 @@ static raw_t *api_str2raw(char *seq) {
   int size = 32; // Initial number of lines in raw_t
   int cnt = 0;
   char *line;
-  const unsigned int L = strlen(seq)+1;
-  char *tmp_seq = (char*) malloc(sizeof(char) * L);
-  strncpy(tmp_seq, seq, L);
+  char *tmp_seq = xstrdup(seq);
 
   raw_t *raw = xmalloc(sizeof(raw_t) + sizeof(char *) * size);
 
