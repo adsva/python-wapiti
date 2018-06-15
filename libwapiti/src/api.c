@@ -25,10 +25,11 @@ static raw_t *api_str2raw(char *seq) {
   int size = 32; // Initial number of lines in raw_t
   int cnt = 0;
   char *line;
+  char *tmp_seq = xstrdup(seq);
 
   raw_t *raw = xmalloc(sizeof(raw_t) + sizeof(char *) * size);
 
-  for (line = strtok(seq, "\n") ; line ; line = strtok(NULL, "\n")) {
+  for (line = strtok(tmp_seq, "\n") ; line ; line = strtok(NULL, "\n")) {
     // Make sure there's room and add the line
     if (cnt == size) {
       size *= 1.4;
@@ -38,6 +39,7 @@ static raw_t *api_str2raw(char *seq) {
   }
   raw = xrealloc(raw, sizeof(raw_t) + sizeof(char *) * cnt);
   raw->len = cnt;
+  free(tmp_seq);
   return raw;
 }
 
